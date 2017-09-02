@@ -28,8 +28,11 @@ import java.util.List;
 
 public class AnamorphicFragment extends BaseGameFragment
 {
-    private static final int CAMERA_PREVIEW_WIDTH = 240;
     private static final int CAMERA_PREVIEW_HEIGHT = 320;
+    private static final int CAMERA_PREVIEW_WIDTH = 240;
+    //    private static final int CAMERA_PREVIEW_HEIGHT = 400;
+//    private static final int CAMERA_PREVIEW_WIDTH = (int) (CAMERA_PREVIEW_HEIGHT * 0.303848512);
+
     private static final int CAMERA_PERMISSIONS_REQUEST_CODE = 30465;
     FaceDetector faceDetector;
     CameraSource cameraSource;
@@ -118,6 +121,9 @@ public class AnamorphicFragment extends BaseGameFragment
         }
         try
         {
+//            Camera camera = Camera.open(CameraSource.CAMERA_FACING_FRONT);
+//            System.out.println(camera.getParameters().getHorizontalViewAngle());
+//            System.out.println(camera.getParameters().getVerticalViewAngle());
             cameraSource.start();
         }
         catch (SecurityException e)

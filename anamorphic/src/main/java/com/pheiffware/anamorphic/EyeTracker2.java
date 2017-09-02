@@ -1,7 +1,6 @@
 package com.pheiffware.anamorphic;
 
 import com.pheiffware.lib.and.input.OrientationTracker;
-import com.pheiffware.lib.graphics.Matrix4;
 import com.pheiffware.lib.graphics.Vec4F;
 
 import java.util.Iterator;
@@ -13,14 +12,15 @@ import java.util.LinkedList;
  * Created by Steve on 9/2/2017.
  */
 
-public class EyeTracker
+public class EyeTracker2
 {
     private final float maxSampleAge;
     private final LinkedList<Vec4F> eyeSamples = new LinkedList<>();
     private final LinkedList<Long> sampleTimeStamps = new LinkedList<>();
     private OrientationTracker orientationTracker = new OrientationTracker(true);
+    private Vec4F stableEye = null;
 
-    public EyeTracker(float maxSampleAge)
+    public EyeTracker2(float maxSampleAge)
     {
         this.maxSampleAge = maxSampleAge;
     }
@@ -37,23 +37,38 @@ public class EyeTracker
         }
     }
 
-    void zeroOrientation()
+    Vec4F getEye()
     {
-        Matrix4 orientationMatrix = orientationTracker.getCurrentOrientation();
-        for (Vec4F eyeSample : eyeSamples)
+        Vec4F averageEye = getAverageEye();
+        if (averageEye == null)
         {
-            eyeSample.transformBy(orientationMatrix);
+            return null;
         }
-        orientationTracker.zeroOrientationMatrix();
+        if (stableEye == null)
+        {
+            stableEye = averageEye;
+        }
+        else
+        {
+            Vec4F diff = Vec4F.sub(stableEye, averageEye);
+            if (diff.magnitude() > 1)
+            {
+                stableEye = averageEye;
+                orientationTracker.zeroOrientationMatrix();
+            }
+        }
+
+        Vec4F finalValue = stableEye.copy();
+        finalValue.transformBy(orientationTracker.getCurrentOrientation());
+        return finalValue;
     }
 
-    Vec4F getEye()
+    Vec4F getAverageEye()
     {
         if (eyeSamples.size() == 0)
         {
             return null;
         }
-        Matrix4 orientationMatrix = orientationTracker.getCurrentOrientation();
         long now = System.nanoTime();
         Vec4F totalEye = new Vec4F(1);
         float totalWeight = 0;
@@ -74,24 +89,11 @@ public class EyeTracker
             {
                 float weight = 1.0f - Math.min(1.0f, ageOfSample / maxSampleAge);
                 totalWeight += weight;
-                Vec4F eyeCopy = eye.copy();
-                eyeCopy.transformBy(orientationMatrix);
-                totalEye.x(totalEye.x() + eyeCopy.x() * weight);
-                totalEye.y(totalEye.y() + eyeCopy.y() * weight);
-                totalEye.z(totalEye.z() + eyeCopy.z() * weight);
+                totalEye.addTo(eye);
             }
         }
-        if (totalWeight == 0f)
-        {
-            totalEye = eyeSamples.getFirst().copy();
-            totalEye.transformBy(orientationMatrix);
-        }
-        else
-        {
-            totalEye.scaleBy(1.0f / totalWeight);
-        }
+        totalEye.scaleBy(1.0f / totalWeight);
         return totalEye;
-
     }
 
 
@@ -107,5 +109,10 @@ public class EyeTracker
     public void onOrientationSensorChanged(float[] sensorEventValues)
     {
         orientationTracker.onSensorChanged(sensorEventValues);
+    }
+
+    public void zeroOrientation()
+    {
+        //TODO: Remove after testing
     }
 }

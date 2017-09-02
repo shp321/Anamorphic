@@ -32,6 +32,7 @@ import com.pheiffware.lib.graphics.managed.program.RenderPropertyValue;
 import com.pheiffware.lib.graphics.managed.program.VertexAttribute;
 import com.pheiffware.lib.graphics.managed.techniques.Std3DTechnique;
 import com.pheiffware.lib.graphics.managed.texture.TextureCubeMap;
+import com.pheiffware.lib.graphics.projection.FieldOfViewProjection;
 import com.pheiffware.lib.graphics.utils.MeshGenUtils;
 import com.pheiffware.lib.graphics.utils.PheiffGLUtils;
 import com.pheiffware.lib.utils.dom.XMLParseException;
@@ -80,7 +81,7 @@ class AnamorphicRenderer extends GameRenderer
         GLES20.glEnable(GLES20.GL_CULL_FACE);
 
         anamorphicCamera = new AnamorphicCamera(2.0f, -2.0f, 25.0f);
-        eyeTracker = new EyeTracker();
+        eyeTracker = new EyeTracker(0.2f);
         PheiffGLUtils.enableAlphaTransparency();
         orientationTracker = new OrientationTracker(true);
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -155,16 +156,12 @@ class AnamorphicRenderer extends GameRenderer
     @Override
     public void onDrawFrame() throws GraphicsException
     {
-        Matrix4 orientationMatrix = orientationTracker.getCurrentOrientation();
-        if (orientationMatrix == null)
-        {
-            return;
-        }
+
 
 //        Vec4F eye = absEyePosition.copy();
 //        eye.transformBy(orientationMatrix);
 
-        Vec4F eye = eyeTracker.getEye(orientationMatrix);
+        Vec4F eye = eyeTracker.getEye();
         if (eye == null)
         {
             return;
@@ -221,7 +218,7 @@ class AnamorphicRenderer extends GameRenderer
         if (event.numPointers == 1)
         {
             //Scale distance of eye from the screen
-            absEyePosition.setZ((float) (absEyePosition.z() + event.transform.translation.x / 100.0f));
+            absEyePosition.z((float) (absEyePosition.z() + event.transform.translation.x / 100.0f));
         }
     }
 
@@ -232,6 +229,7 @@ class AnamorphicRenderer extends GameRenderer
         {
             case Sensor.TYPE_ROTATION_VECTOR:
                 orientationTracker.onSensorChanged(values);
+                eyeTracker.onOrientationSensorChanged(values);
                 break;
         }
     }
@@ -254,21 +252,33 @@ class AnamorphicRenderer extends GameRenderer
 //                float screenY = leftEyePosition.y;
 //                float offsetX = -0.10865198f;
 //                float offsetY = -0.25f;
-        Matrix4 currentOrientation = orientationTracker.getCurrentOrientation();
-        if (eyeTracker != null && currentOrientation != null)
+        if (eyeTracker != null)
         {
-            eyeTracker.updateEyes(currentOrientation);
-            orientationTracker.zeroOrientationMatrix();
-            float screenX = position.x;
-            float screenY = position.y;
-            float offsetX = 0.6f;
+            float cameraHorizontalFOV = 39.4f;
+            float cameraVerticalFOV = 69.7f;
+
+            eyeTracker.zeroOrientation();
+            float faceCameraPixelX = position.x;
+            float faceCameraPixelY = position.y;
+            float offsetX = 0.7f;
             float offsetY = 0.52f;
-            float eyeX = (screenX - cameraPreviewWidth / 2) / cameraPreviewHeight;
-            float eyeY = (screenY - cameraPreviewHeight / 2) / cameraPreviewHeight;
+            float faceCameraNormalizedX = (faceCameraPixelX - cameraPreviewWidth / 2) / (cameraPreviewWidth / 2);
+            float faceCameraNormalizedY = (faceCameraPixelY - cameraPreviewHeight / 2) / (cameraPreviewHeight / 2);
+
+//            float projectFaceWidth = width / cameraPreviewWidth / FieldOfViewProjection.fovToScreenScaleFactor(cameraHorizontalFOV);
+//            float projectFaceHeight = height / cameraPreviewHeight / FieldOfViewProjection.fovToScreenScaleFactor(cameraVerticalFOV);
+//            float eyeZ = 20f * projectFaceWidth;
             float faceDiagonal = (float) (Math.sqrt((width / cameraPreviewWidth) * (width / cameraPreviewWidth) + (height / cameraPreviewHeight) * (height / cameraPreviewHeight)));
             float eyeZ = 2.77f * 1.0905f / faceDiagonal;
-            eyeX = eyeX * eyeZ + offsetX;
-            eyeY = eyeY * eyeZ + offsetY;
+            Log.i("Face", "(" + faceCameraNormalizedX + "," + faceCameraNormalizedY + ")");
+            float faceCameraProjectedX = faceCameraNormalizedX / FieldOfViewProjection.fovToScreenScaleFactor(cameraHorizontalFOV);
+            float faceCameraProjectedY = faceCameraNormalizedY / FieldOfViewProjection.fovToScreenScaleFactor(cameraVerticalFOV);
+            Log.i("Face", "FOV: (" + FieldOfViewProjection.fovToScreenScaleFactor(cameraHorizontalFOV) + "," + FieldOfViewProjection.fovToScreenScaleFactor(cameraVerticalFOV) + ")");
+
+            float faceX = faceCameraProjectedX * eyeZ;
+            float faceY = faceCameraProjectedY * eyeZ;
+            float eyeX = faceX + offsetX;
+            float eyeY = faceY + offsetY;
             Vec4F eye = new Vec4F(1);
             eye.set(-eyeX, -eyeY, eyeZ, 1);
             eyeTracker.addEye(eye);
