@@ -51,7 +51,7 @@ class AnamorphicRenderer extends GameRenderer
     private TextureCubeMap[] cubeDepthTextures;
     private Std3DTechnique colorTechnique;
     private MeshDataManager manager;
-
+    private AnamorphicCamera anamorphicCamera;
     //Represents the position of the eye relative to surface of the direct center of the screen if screen is flat.
     private final Vec4F absEyePosition = new Vec4F(0, 0, 2.7f, 1);
     //private final Vec4F cameraEyePosition = new Vec4F(0, 0, 4, 1);
@@ -79,6 +79,7 @@ class AnamorphicRenderer extends GameRenderer
         GLES20.glCullFace(GLES20.GL_BACK);
         GLES20.glEnable(GLES20.GL_CULL_FACE);
 
+        anamorphicCamera = new AnamorphicCamera(2.0f, -2.0f, 25.0f);
         eyeTracker = new EyeTracker();
         PheiffGLUtils.enableAlphaTransparency();
         orientationTracker = new OrientationTracker(true);
@@ -168,7 +169,6 @@ class AnamorphicRenderer extends GameRenderer
         {
             return;
         }
-        AnamorphicCamera anamorphicCamera = new AnamorphicCamera(2.0f, getSurfaceWidth() / (float) getSurfaceHeight(), -2.0f, 25.0f);
 
         Log.i("Face", "(" + eye.x() + ", " + eye.y() + ", " + eye.z() + ")");
         anamorphicCamera.setPosition(eye.x(), eye.y(), eye.z());
@@ -206,6 +206,13 @@ class AnamorphicRenderer extends GameRenderer
         positions.transformByAll(orientationMatrix);
         positions.setIndex(0);
         cubeDepthRenderer.render(positions.x(), positions.y(), positions.z(), cubeDepthTextures[0]);
+    }
+
+    @Override
+    public void onSurfaceResize(int width, int height)
+    {
+        super.onSurfaceResize(width, height);
+        anamorphicCamera.setAspect(width / (float) height);
     }
 
     @Override
