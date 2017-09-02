@@ -55,7 +55,7 @@ class AnamorphicRenderer extends GameRenderer
     //Represents the position of the eye relative to surface of the direct center of the screen if screen is flat.
     private final Vec4F absEyePosition = new Vec4F(0, 0, 2.7f, 1);
     //private final Vec4F cameraEyePosition = new Vec4F(0, 0, 4, 1);
-    private EyeBuffer eyeBuffer;
+    private EyeTracker eyeTracker;
 
     private MeshHandle[] monkeyHandles;
     private Mesh screenQuad;
@@ -79,7 +79,7 @@ class AnamorphicRenderer extends GameRenderer
         GLES20.glCullFace(GLES20.GL_BACK);
         GLES20.glEnable(GLES20.GL_CULL_FACE);
 
-        eyeBuffer = new EyeBuffer();
+        eyeTracker = new EyeTracker();
         PheiffGLUtils.enableAlphaTransparency();
         orientationTracker = new OrientationTracker(true);
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -124,7 +124,7 @@ class AnamorphicRenderer extends GameRenderer
             monkeyGroupHandle.setMeshHandles(monkeyHandles);
             cubeDepthRenderer.add(monkeyGroupHandle);
             EnumMap<VertexAttribute, float[]> data = new EnumMap<>(VertexAttribute.class);
-            data.put(VertexAttribute.POSITION4, MeshGenUtils.genSingleQuadPositionData(0, 0, 0, 1f, VertexAttribute.POSITION4));
+            data.put(VertexAttribute.POSITION4, MeshGenUtils.genSingleQuadPositionData(0, 0, 0, 2f, VertexAttribute.POSITION4));
             data.put(VertexAttribute.NORMAL3, new float[]{0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1});
             screenQuad = new Mesh(6, data, MeshGenUtils.genSingleQuadIndexData());
             screenHandle = manager.addStaticMesh(screenQuad,
@@ -140,8 +140,8 @@ class AnamorphicRenderer extends GameRenderer
             manager.packAndTransfer();
             for (int i = 0; i < numMonkeys; i++)
             {
-                Matrix4 transform = Matrix4.newTranslation(0.0f, 0.0f, 0.5f - i * 0.25f);
-                transform.scaleBy(0.1f, 0.1f, 0.1f);
+                Matrix4 transform = Matrix4.newTranslation(0.0f, 0.0f, 0.5f - i * 1f);
+                transform.scaleBy(0.3f, 0.3f, 0.3f);
                 monkeyHandles[i].setProperty(RenderProperty.MODEL_MATRIX, transform);
             }
         }
@@ -163,14 +163,15 @@ class AnamorphicRenderer extends GameRenderer
 //        Vec4F eye = absEyePosition.copy();
 //        eye.transformBy(orientationMatrix);
 
-        Vec4F eye = eyeBuffer.getEye(orientationMatrix);
+        Vec4F eye = eyeTracker.getEye(orientationMatrix);
         if (eye == null)
         {
             return;
         }
-        Log.i("Face", "(" + eye.x() + ", " + eye.y() + ", " + eye.z() + ")");
-        HoloCamera holoCamera = new HoloCamera(eye.x(), eye.y(), eye.z(), ((float) getSurfaceWidth() / getSurfaceHeight()));
+        AnamorphicCamera anamorphicCamera = new AnamorphicCamera(2.0f, getSurfaceWidth() / (float) getSurfaceHeight(), -2.0f, 25.0f);
 
+        Log.i("Face", "(" + eye.x() + ", " + eye.y() + ", " + eye.z() + ")");
+        anamorphicCamera.setPosition(eye.x(), eye.y(), eye.z());
 
         //Render shadows
         //renderShadowDepth(orientationMatrix);
@@ -183,8 +184,8 @@ class AnamorphicRenderer extends GameRenderer
         GLES20.glClearDepthf(1);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
-        colorTechnique.setProperty(RenderProperty.PROJECTION_MATRIX, holoCamera.projectionMatrix);
-        colorTechnique.setProperty(RenderProperty.VIEW_MATRIX, holoCamera.viewMatrix);
+        colorTechnique.setProperty(RenderProperty.PROJECTION_MATRIX, anamorphicCamera.getProjectionMatrix());
+        colorTechnique.setProperty(RenderProperty.VIEW_MATRIX, anamorphicCamera.getViewMatrix());
         colorTechnique.setProperty(RenderProperty.LIGHTING, lighting);
         colorTechnique.setProperty(RenderProperty.DEPTH_Z_CONST, cubeDepthRenderer.getDepthZConst());
         colorTechnique.setProperty(RenderProperty.DEPTH_Z_FACTOR, cubeDepthRenderer.getDepthZFactor());
@@ -247,13 +248,13 @@ class AnamorphicRenderer extends GameRenderer
 //                float offsetX = -0.10865198f;
 //                float offsetY = -0.25f;
         Matrix4 currentOrientation = orientationTracker.getCurrentOrientation();
-        if (eyeBuffer != null && currentOrientation != null)
+        if (eyeTracker != null && currentOrientation != null)
         {
-            eyeBuffer.updateEyes(currentOrientation);
+            eyeTracker.updateEyes(currentOrientation);
             orientationTracker.zeroOrientationMatrix();
             float screenX = position.x;
             float screenY = position.y;
-            float offsetX = 0.47f;
+            float offsetX = 0.6f;
             float offsetY = 0.52f;
             float eyeX = (screenX - cameraPreviewWidth / 2) / cameraPreviewHeight;
             float eyeY = (screenY - cameraPreviewHeight / 2) / cameraPreviewHeight;
@@ -263,7 +264,7 @@ class AnamorphicRenderer extends GameRenderer
             eyeY = eyeY * eyeZ + offsetY;
             Vec4F eye = new Vec4F(1);
             eye.set(-eyeX, -eyeY, eyeZ, 1);
-            eyeBuffer.addEye(eye);
+            eyeTracker.addEye(eye);
         }
 //            }
 //            offsetX += eyeX;
