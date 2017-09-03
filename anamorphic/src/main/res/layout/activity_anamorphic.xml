@@ -4,12 +4,35 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:context="com.pheiffware.anamorphic.Anamorphic">
 
-    <fragment
-        android:id="@+id/fragment_anamorphic"
-        android:name="com.pheiffware.anamorphic.AnamorphicFragment"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:weightSum="1">
+
+        <fragment
+            android:id="@+id/anamorphicFragment"
+            android:name="com.pheiffware.anamorphic.AnamorphicFragment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/calibrateButton"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:text="Calibrate"/>
+        </LinearLayout>
+
+    </LinearLayout>
 
 </LinearLayout>

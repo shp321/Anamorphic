@@ -1,9 +1,11 @@
 package com.pheiffware.anamorphic;
 
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 
-public class Anamorphic extends AppCompatActivity
+import com.pheiffware.lib.and.gui.LoggedActivity;
+
+public class Anamorphic extends LoggedActivity
 {
 
     @Override
@@ -11,5 +13,15 @@ public class Anamorphic extends AppCompatActivity
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_anamorphic);
+        View calibrateButton = findViewById(R.id.calibrateButton);
+        final AnamorphicFragment anamorphicFragment = (AnamorphicFragment) getSupportFragmentManager().findFragmentById(R.id.anamorphicFragment);
+        calibrateButton.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View view)
+            {
+                anamorphicFragment.startCalibration();
+            }
+        });
     }
 }

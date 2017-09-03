@@ -178,7 +178,7 @@ public class AnamorphicFragment extends BaseGameFragment
         @Override
         public void onNewItem(int faceId, final Face face)
         {
-            //Log.i("Face", "New face: " + faceId);
+            //Log.i("Face", "New findEye: " + faceId);
             sendFaceUpdate(true, face);
         }
 
@@ -205,7 +205,7 @@ public class AnamorphicFragment extends BaseGameFragment
 
 //            Log.i("Face", "Left Eye: " + leftEyePosition + " Right Eye: " + rightEyePosition);
 
-//            Log.i("Face", "Tracking face: RY = " + face.getEulerY() + " + RZ = " + face.getEulerZ());
+//            Log.i("Face", "Tracking findEye: RY = " + findEye.getEulerY() + " + RZ = " + findEye.getEulerZ());
         }
 
         @Override
@@ -229,4 +229,8 @@ public class AnamorphicFragment extends BaseGameFragment
         }
     }
 
+    public void startCalibration()
+    {
+        renderer.startCalibration();
+    }
 }
