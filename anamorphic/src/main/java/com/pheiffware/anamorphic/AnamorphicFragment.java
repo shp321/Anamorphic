@@ -3,6 +3,8 @@ package com.pheiffware.anamorphic;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.PointF;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCharacteristics;
 import android.os.Bundle;
 import android.support.v13.app.ActivityCompat;
 import android.util.Log;
@@ -15,8 +17,11 @@ import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
 import com.google.android.gms.vision.face.Landmark;
 import com.google.android.gms.vision.face.LargestFaceFocusingProcessor;
+import com.pheiffware.anamorphic.eyeTracking.EyeSensorCalibration;
 import com.pheiffware.lib.and.gui.graphics.openGL.BaseGameFragment;
 import com.pheiffware.lib.and.gui.graphics.openGL.GameView;
+import com.pheiffware.lib.and.input.CameraDisplayInfo;
+import com.pheiffware.lib.and.input.CameraUtils;
 import com.pheiffware.lib.graphics.FilterQuality;
 
 import java.io.IOException;
@@ -28,10 +33,7 @@ import java.util.List;
 
 public class AnamorphicFragment extends BaseGameFragment
 {
-    private static final int CAMERA_PREVIEW_HEIGHT = 320;
-    private static final int CAMERA_PREVIEW_WIDTH = 240;
-    //    private static final int CAMERA_PREVIEW_HEIGHT = 400;
-//    private static final int CAMERA_PREVIEW_WIDTH = (int) (CAMERA_PREVIEW_HEIGHT * 0.303848512);
+    private static final int CAMERA_PREVIEW_HEIGHT = 400;
 
     private static final int CAMERA_PERMISSIONS_REQUEST_CODE = 30465;
     FaceDetector faceDetector;
@@ -40,10 +42,15 @@ public class AnamorphicFragment extends BaseGameFragment
     private AnamorphicRenderer renderer;
 
     @Override
+    public void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
     public GameView onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
     {
         alreadyAskedForCamera = false;
-
         faceDetector = new FaceDetector.Builder(getContext()).
                 setProminentFaceOnly(true)
                 .setLandmarkType(FaceDetector.NO_LANDMARKS)
@@ -60,18 +67,34 @@ public class AnamorphicFragment extends BaseGameFragment
 
         if (!faceDetector.isOperational())
         {
-            //TODO: Proper error
+            //TODO: Proper error handling
             Log.e("FACE", "Face detector dependencies are not yet available.");
             getActivity().finish();
         }
-        cameraSource = new CameraSource.Builder(getContext(), faceDetector)
-                .setFacing(CameraSource.CAMERA_FACING_FRONT)
-                .setRequestedPreviewSize(CAMERA_PREVIEW_WIDTH, CAMERA_PREVIEW_HEIGHT)
-                .setAutoFocusEnabled(true)
-                .setRequestedFps(30)
-                .build();
-        this.renderer = new AnamorphicRenderer(CAMERA_PREVIEW_WIDTH, CAMERA_PREVIEW_HEIGHT);
-        return new GameView(getContext(), renderer, FilterQuality.MEDIUM, true, true);
+        try
+        {
+
+            //TODO: Switched width/height information, because we are in vertical mode.  Not clear how
+            CameraDisplayInfo cameraInfo = CameraUtils.getCameraDisplayInfo(getContext(), CameraCharacteristics.LENS_FACING_FRONT);
+            int cameraPreviewWidth = (int) (CAMERA_PREVIEW_HEIGHT / cameraInfo.pixelAspect);
+            cameraSource = new CameraSource.Builder(getContext(), faceDetector)
+                    .setFacing(CameraSource.CAMERA_FACING_FRONT)
+                    .setRequestedPreviewSize(cameraPreviewWidth, CAMERA_PREVIEW_HEIGHT)
+                    .setAutoFocusEnabled(true)
+                    .setRequestedFps(30)
+                    .build();
+            //TODO: Save/restore calibration
+            EyeSensorCalibration calibration = null;
+            this.renderer = new AnamorphicRenderer(cameraPreviewWidth, CAMERA_PREVIEW_HEIGHT, cameraInfo.fovY, cameraInfo.fovX, calibration);
+            return new GameView(getContext(), renderer, FilterQuality.MEDIUM, true, true);
+        }
+        catch (CameraAccessException e)
+        {
+            //TODO: Proper error handling
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+
     }
 
     @Override
@@ -121,9 +144,6 @@ public class AnamorphicFragment extends BaseGameFragment
         }
         try
         {
-//            Camera camera = Camera.open(CameraSource.CAMERA_FACING_FRONT);
-//            System.out.println(camera.getParameters().getHorizontalViewAngle());
-//            System.out.println(camera.getParameters().getVerticalViewAngle());
             cameraSource.start();
         }
         catch (SecurityException e)
@@ -231,6 +251,6 @@ public class AnamorphicFragment extends BaseGameFragment
 
     public void startCalibration()
     {
-        renderer.startCalibration();
+        renderer.calibrateEyeSensor();
     }
 }

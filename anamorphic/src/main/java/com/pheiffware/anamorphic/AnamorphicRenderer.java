@@ -5,6 +5,9 @@ import android.hardware.Sensor;
 import android.opengl.GLES20;
 import android.util.Log;
 
+import com.pheiffware.anamorphic.eyeTracking.EyeSensor;
+import com.pheiffware.anamorphic.eyeTracking.EyeSensorCalibration;
+import com.pheiffware.anamorphic.eyeTracking.EyeTracker;
 import com.pheiffware.lib.AssetLoader;
 import com.pheiffware.lib.and.graphics.AndGraphicsUtils;
 import com.pheiffware.lib.and.gui.graphics.openGL.GameRenderer;
@@ -66,17 +69,24 @@ class AnamorphicRenderer extends GameRenderer
     private MeshHandle calibrationHandle;
     private CubeDepthRenderer cubeDepthRenderer;
     private OrientationTracker orientationTracker;
+    private EyeSensor eyeSensor;
+    private EyeSensorCalibration eyeSensorCalibration;
     private EyeTracker eyeTracker;
-    private EyeReader eyeReader;
 
 
-    public AnamorphicRenderer(int cameraPreviewWidth, int cameraPreviewHeight)
+    public AnamorphicRenderer(int cameraPreviewWidth, int cameraPreviewHeight, float fovX, float fovY, EyeSensorCalibration eyeSensorCalibration)
     {
         super(AndGraphicsUtils.GL_VERSION_30, AndGraphicsUtils.GL_VERSION_30, "shaders");
-        //TODO: get these values for real
-        //    private final float cameraHorizontalFOV = 39.4f;
-//    private final float cameraVerticalFOV = 69.7f;
-        eyeReader = new EyeReader(cameraPreviewWidth, cameraPreviewHeight, 39.4f, 69.7f);
+        if (eyeSensorCalibration == null)
+        {
+            eyeSensorCalibration = new EyeSensorCalibration();
+            eyeSensor = new EyeSensor(eyeSensorCalibration, cameraPreviewWidth, cameraPreviewHeight, fovX, fovY);
+            calibrateEyeSensor();
+        }
+        else
+        {
+            eyeSensor = new EyeSensor(eyeSensorCalibration, cameraPreviewWidth, cameraPreviewHeight, fovX, fovY);
+        }
     }
 
     @Override
@@ -168,7 +178,6 @@ class AnamorphicRenderer extends GameRenderer
         {
             throw new GraphicsException(e);
         }
-        startCalibration();
     }
 
     @Override
@@ -264,14 +273,14 @@ class AnamorphicRenderer extends GameRenderer
     public void updateFace(float width, float height, float eulerY, float eulerZ, PointF position, PointF leftEyePosition)
     {
         eyeTracker.zeroOrientation();
-        Vec4F eye = eyeReader.findEye(width, height, position.x, position.y, eulerY, eulerZ);
+        Vec4F eye = eyeSensor.calcEye(width, height, position.x, position.y); //, eulerY, eulerZ);
         Log.i("Face", "(" + eye.x() + "," + eye.y() + "," + eye.z() + ")");
         eyeTracker.addEye(eye);
     }
 
-    public void startCalibration()
+    public void calibrateEyeSensor()
     {
         //TODO: Z-calibration should be in real units and converted, based on physical screen size to Screen Coordinates
-        eyeReader.startCalibration(50, CALIBRATION_X, CALIBRATION_Y, CALIBRATION_Z);
+        eyeSensor.calibrate(50, CALIBRATION_X, CALIBRATION_Y, CALIBRATION_Z);
     }
 }

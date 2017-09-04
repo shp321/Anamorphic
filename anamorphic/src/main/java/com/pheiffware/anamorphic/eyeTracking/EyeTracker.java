@@ -1,4 +1,4 @@
-package com.pheiffware.anamorphic;
+package com.pheiffware.anamorphic.eyeTracking;
 
 import com.pheiffware.lib.and.input.OrientationTracker;
 import com.pheiffware.lib.graphics.Matrix4;
@@ -25,7 +25,7 @@ public class EyeTracker
         this.maxSampleAge = maxSampleAge;
     }
 
-    void addEye(Vec4F eye)
+    public void addEye(Vec4F eye)
     {
         sampleTimeStamps.add(null);
         eyeSamples.add(eye.copy());
@@ -37,7 +37,7 @@ public class EyeTracker
         }
     }
 
-    void zeroOrientation()
+    public void zeroOrientation()
     {
         Matrix4 orientationMatrix = orientationTracker.getCurrentOrientation();
         for (Vec4F eyeSample : eyeSamples)
@@ -47,7 +47,7 @@ public class EyeTracker
         orientationTracker.zeroOrientationMatrix();
     }
 
-    Vec4F getEye()
+    public Vec4F getEye()
     {
         if (eyeSamples.size() == 0)
         {
