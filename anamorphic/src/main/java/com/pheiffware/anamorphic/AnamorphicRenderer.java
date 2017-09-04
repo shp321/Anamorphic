@@ -5,6 +5,8 @@ import android.hardware.Sensor;
 import android.opengl.GLES20;
 import android.util.Log;
 
+import com.google.android.gms.vision.face.Face;
+import com.google.android.gms.vision.face.Landmark;
 import com.pheiffware.anamorphic.eyeTracking.EyeSensor;
 import com.pheiffware.anamorphic.eyeTracking.EyeSensorCalibration;
 import com.pheiffware.anamorphic.eyeTracking.EyeTracker;
@@ -42,6 +44,7 @@ import com.pheiffware.lib.utils.dom.XMLParseException;
 
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.List;
 
 /**
  * Created by Steve on 9/2/2017.
@@ -265,18 +268,41 @@ class AnamorphicRenderer extends GameRenderer
         }
     }
 
-    public void faceMissing()
+
+    public void faceOnCamera()
     {
-        Log.i("Face", "Missing");
+
     }
 
-    public void updateFace(float width, float height, float eulerY, float eulerZ, PointF position, PointF leftEyePosition)
+    public void faceUpdated(Face face)
     {
+        final PointF leftEyePosition;
+        Landmark leftEye = getLandmark(face, Landmark.LEFT_EYE);
+        if (leftEye != null)
+        {
+            leftEyePosition = leftEye.getPosition();
+        }
+        else
+        {
+            leftEyePosition = null;
+        }
+
+        final float width = face.getWidth();
+        final float height = face.getHeight();
+        final float eulerY = face.getEulerY();
+        final float eulerZ = face.getEulerZ();
+        final PointF position = face.getPosition();
         eyeTracker.zeroOrientation();
         Vec4F eye = eyeSensor.getEyePosition(width, height, position.x, position.y); //, eulerY, eulerZ);
         Log.i("Face", "(" + eye.x() + "," + eye.y() + "," + eye.z() + ")");
         eyeTracker.addEye(eye);
     }
+
+    public void faceOffCamera()
+    {
+        Log.i("Face", "Missing");
+    }
+
 
     public void calibrateEyeSensor()
     {
@@ -287,5 +313,19 @@ class AnamorphicRenderer extends GameRenderer
     public EyeSensorCalibration getEyeSensorCalibration()
     {
         return eyeSensor.getCalibration();
+    }
+
+    private Landmark getLandmark(Face face, int type)
+    {
+        List<Landmark> landmarks = face.getLandmarks();
+        for (Landmark landmark : landmarks)
+        {
+            if (landmark.getType() == type)
+            {
+                return landmark;
+            }
+        }
+
+        return null;
     }
 }

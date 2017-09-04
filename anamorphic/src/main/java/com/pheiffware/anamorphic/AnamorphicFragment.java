@@ -4,7 +4,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.PointF;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Bundle;
@@ -17,7 +18,6 @@ import com.google.android.gms.vision.CameraSource;
 import com.google.android.gms.vision.Tracker;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
-import com.google.android.gms.vision.face.Landmark;
 import com.google.android.gms.vision.face.LargestFaceFocusingProcessor;
 import com.pheiffware.anamorphic.eyeTracking.EyeSensorCalibration;
 import com.pheiffware.lib.and.gui.graphics.openGL.BaseGameFragment;
@@ -27,7 +27,6 @@ import com.pheiffware.lib.and.input.CameraUtils;
 import com.pheiffware.lib.graphics.FilterQuality;
 
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Created by Steve on 9/2/2017.
@@ -47,6 +46,12 @@ public class AnamorphicFragment extends BaseGameFragment
     CameraSource cameraSource;
     private boolean alreadyAskedForCamera;
     private AnamorphicRenderer renderer;
+
+    public AnamorphicFragment()
+    {
+        super(new int[]{Sensor.TYPE_ROTATION_VECTOR}, new int[]{
+                SensorManager.SENSOR_DELAY_FASTEST});
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -74,7 +79,6 @@ public class AnamorphicFragment extends BaseGameFragment
                 new LargestFaceFocusingProcessor.Builder(faceDetector, new FaceTracker())
                         .build());
 
-
         if (!faceDetector.isOperational())
         {
             //TODO: Proper error handling
@@ -94,7 +98,7 @@ public class AnamorphicFragment extends BaseGameFragment
                     .setRequestedFps(30)
                     .build();
             this.renderer = new AnamorphicRenderer(cameraPreviewWidth, CAMERA_PREVIEW_HEIGHT, cameraInfo.fovY, cameraInfo.fovX, calibration);
-            return new GameView(getContext(), renderer, FilterQuality.MEDIUM, true, true);
+            return new GameView(getContext(), renderer, FilterQuality.MEDIUM, true);
         }
         catch (CameraAccessException e)
         {
@@ -108,25 +112,23 @@ public class AnamorphicFragment extends BaseGameFragment
     @Override
     public void onResume()
     {
-        //TODO: Reevaluate start/stop for this and starting/stopping rendering
         super.onResume();
         Log.i("Permissions", "Resume");
         startCamera();
-
     }
 
     @Override
     public void onPause()
     {
         Log.i("Permissions", "Pause");
-        super.onPause();
-        cameraSource.stop();
+        stopCamera();
         calibration = renderer.getEyeSensorCalibration();
         SharedPreferences sharedPref = getContext().getSharedPreferences(
                 "anamorphicData", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPref.edit();
         calibration.write(editor);
         editor.apply();
+        super.onPause();
     }
 
 
@@ -171,7 +173,11 @@ public class AnamorphicFragment extends BaseGameFragment
         {
             throw new RuntimeException("Could not access camera", e);
         }
+    }
 
+    private void stopCamera()
+    {
+        cameraSource.stop();
     }
 
     public void startCalibration()
@@ -182,66 +188,32 @@ public class AnamorphicFragment extends BaseGameFragment
 
     private class FaceTracker extends Tracker<Face>
     {
-        float averageWidth = 0;
-        int numSamples = 0;
-
-        private void sendFaceUpdate(final boolean newFace, Face face)
-        {
-            if (face != null)
-            {
-                final PointF leftEyePosition;
-                Landmark leftEye = getLandmark(face, Landmark.LEFT_EYE);
-                if (leftEye != null)
-                {
-                    leftEyePosition = leftEye.getPosition();
-                }
-                else
-                {
-                    leftEyePosition = null;
-                }
-
-                final float width = face.getWidth();
-                final float height = face.getHeight();
-                final float eulerY = face.getEulerY();
-                final float eulerZ = face.getEulerZ();
-                final PointF position = face.getPosition();
-                getView().queueEvent(new Runnable()
-                {
-                    @Override
-                    public void run()
-                    {
-                        renderer.updateFace(width, height, eulerY, eulerZ, position, leftEyePosition);
-                    }
-                });
-            }
-
-        }
-
         @Override
         public void onNewItem(int faceId, final Face face)
         {
-            sendFaceUpdate(true, face);
-        }
-
-        private Landmark getLandmark(Face face, int type)
-        {
-            List<Landmark> landmarks = face.getLandmarks();
-            for (Landmark landmark : landmarks)
+            getView().queueEvent(new Runnable()
             {
-                if (landmark.getType() == type)
+                @Override
+                public void run()
                 {
-                    return landmark;
+                    renderer.faceOnCamera();
+                    renderer.faceUpdated(face);
                 }
-            }
-
-            return null;
+            });
         }
 
         @Override
         public void onUpdate(FaceDetector.Detections<Face> detectionResults,
-                             Face face)
+                             final Face face)
         {
-            sendFaceUpdate(false, face);
+            getView().queueEvent(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    renderer.faceUpdated(face);
+                }
+            });
         }
 
         @Override
@@ -252,7 +224,7 @@ public class AnamorphicFragment extends BaseGameFragment
                 @Override
                 public void run()
                 {
-                    renderer.faceMissing();
+                    renderer.faceOffCamera();
                 }
             });
         }
