@@ -70,9 +70,7 @@ class AnamorphicRenderer extends GameRenderer
     private CubeDepthRenderer cubeDepthRenderer;
     private OrientationTracker orientationTracker;
     private EyeSensor eyeSensor;
-    private EyeSensorCalibration eyeSensorCalibration;
     private EyeTracker eyeTracker;
-
 
     public AnamorphicRenderer(int cameraPreviewWidth, int cameraPreviewHeight, float fovX, float fovY, EyeSensorCalibration eyeSensorCalibration)
     {
@@ -97,12 +95,11 @@ class AnamorphicRenderer extends GameRenderer
         GLES20.glEnable(GLES20.GL_CULL_FACE);
 
         anamorphicCamera = new AnamorphicCamera(2.0f, -1.5f, 25.0f);
-        eyeTracker = new EyeTracker(0.2f);
+        eyeTracker = new EyeTracker(0.1f);
         PheiffGLUtils.enableAlphaTransparency();
         orientationTracker = new OrientationTracker(true);
         GLES20.glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 
-//            lighting = new HoloLighting(new float[]{0.2f, 0.2f, 0.2f, 1.0f}, new float[]{1, 0.5f, 2, 1}, new float[]{0.7f, 0.7f, 0.7f, 1.0f}, new boolean[]{true});
         lighting = new HoloLighting(new float[]{0.2f, 0.2f, 0.2f, 1.0f}, new float[]{0, 0, 2.7f, 1}, new float[]{0.7f, 0.7f, 0.7f, 1.0f}, new boolean[]{true});
         //lighting.setCastsCubeShadow(0, 1);
         cubeDepthTextures = new TextureCubeMap[Lighting.numLightsSupported];
@@ -221,10 +218,13 @@ class AnamorphicRenderer extends GameRenderer
         }
         screenHandle.drawTriangles();
 
-        color2DTechnique.setProperty(RenderProperty.PROJECTION_MATRIX, Matrix4.newOrtho2D(getSurfaceWidth() / (float) getSurfaceHeight()));
-        color2DTechnique.setProperty(RenderProperty.VIEW_MATRIX, Matrix4.newIdentity());
-        calibrationHandle.setProperty(RenderProperty.MODEL_MATRIX, Matrix4.newTranslation(0.25f, 0.5f, 0));
-        calibrationHandle.drawTriangles();
+        if (eyeSensor.isCalibrating())
+        {
+            color2DTechnique.setProperty(RenderProperty.PROJECTION_MATRIX, Matrix4.newOrtho2D(getSurfaceWidth() / (float) getSurfaceHeight()));
+            color2DTechnique.setProperty(RenderProperty.VIEW_MATRIX, Matrix4.newIdentity());
+            calibrationHandle.setProperty(RenderProperty.MODEL_MATRIX, Matrix4.newTranslation(0.25f, 0.5f, 0));
+            calibrationHandle.drawTriangles();
+        }
         GLES20.glFinish();
     }
 
@@ -273,7 +273,7 @@ class AnamorphicRenderer extends GameRenderer
     public void updateFace(float width, float height, float eulerY, float eulerZ, PointF position, PointF leftEyePosition)
     {
         eyeTracker.zeroOrientation();
-        Vec4F eye = eyeSensor.calcEye(width, height, position.x, position.y); //, eulerY, eulerZ);
+        Vec4F eye = eyeSensor.getEyePosition(width, height, position.x, position.y); //, eulerY, eulerZ);
         Log.i("Face", "(" + eye.x() + "," + eye.y() + "," + eye.z() + ")");
         eyeTracker.addEye(eye);
     }
@@ -281,6 +281,11 @@ class AnamorphicRenderer extends GameRenderer
     public void calibrateEyeSensor()
     {
         //TODO: Z-calibration should be in real units and converted, based on physical screen size to Screen Coordinates
-        eyeSensor.calibrate(50, CALIBRATION_X, CALIBRATION_Y, CALIBRATION_Z);
+        eyeSensor.calibrate(70, CALIBRATION_X, CALIBRATION_Y, CALIBRATION_Z);
+    }
+
+    public EyeSensorCalibration getEyeSensorCalibration()
+    {
+        return eyeSensor.getCalibration();
     }
 }

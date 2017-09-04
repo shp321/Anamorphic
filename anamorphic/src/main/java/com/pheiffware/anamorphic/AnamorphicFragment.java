@@ -1,6 +1,8 @@
 package com.pheiffware.anamorphic;
 
 import android.Manifest;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.PointF;
 import android.hardware.camera2.CameraAccessException;
@@ -34,8 +36,13 @@ import java.util.List;
 public class AnamorphicFragment extends BaseGameFragment
 {
     private static final int CAMERA_PREVIEW_HEIGHT = 400;
+    private static final int speedMode = FaceDetector.ACCURATE_MODE;
+    //private static final int speedMode = FaceDetector.FAST_MODE;
+    private static final boolean useAutoFocus = false;
 
     private static final int CAMERA_PERMISSIONS_REQUEST_CODE = 30465;
+
+    private EyeSensorCalibration calibration;
     FaceDetector faceDetector;
     CameraSource cameraSource;
     private boolean alreadyAskedForCamera;
@@ -45,6 +52,10 @@ public class AnamorphicFragment extends BaseGameFragment
     public void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
+        SharedPreferences sharedPref = getContext().getSharedPreferences(
+                "anamorphicData", Context.MODE_PRIVATE);
+
+        calibration = new EyeSensorCalibration(sharedPref);
     }
 
     @Override
@@ -54,11 +65,10 @@ public class AnamorphicFragment extends BaseGameFragment
         faceDetector = new FaceDetector.Builder(getContext()).
                 setProminentFaceOnly(true)
                 .setLandmarkType(FaceDetector.NO_LANDMARKS)
-                .setMinFaceSize(0.01f)
-                .setMode(FaceDetector.ACCURATE_MODE)
-                .setTrackingEnabled(true)
 //                .setLandmarkType(FaceDetector.ALL_LANDMARKS)
-//                .setMode(FaceDetector.FAST_MODE)
+                .setMinFaceSize(0.01f)
+                .setTrackingEnabled(true)
+                .setMode(speedMode)
                 .build();
         faceDetector.setProcessor(
                 new LargestFaceFocusingProcessor.Builder(faceDetector, new FaceTracker())
@@ -80,11 +90,9 @@ public class AnamorphicFragment extends BaseGameFragment
             cameraSource = new CameraSource.Builder(getContext(), faceDetector)
                     .setFacing(CameraSource.CAMERA_FACING_FRONT)
                     .setRequestedPreviewSize(cameraPreviewWidth, CAMERA_PREVIEW_HEIGHT)
-                    .setAutoFocusEnabled(true)
+                    .setAutoFocusEnabled(useAutoFocus)
                     .setRequestedFps(30)
                     .build();
-            //TODO: Save/restore calibration
-            EyeSensorCalibration calibration = null;
             this.renderer = new AnamorphicRenderer(cameraPreviewWidth, CAMERA_PREVIEW_HEIGHT, cameraInfo.fovY, cameraInfo.fovX, calibration);
             return new GameView(getContext(), renderer, FilterQuality.MEDIUM, true, true);
         }
@@ -98,12 +106,13 @@ public class AnamorphicFragment extends BaseGameFragment
     }
 
     @Override
-    public void onDestroyView()
+    public void onResume()
     {
-        super.onDestroyView();
-        cameraSource.release();
-        faceDetector.release();
-        renderer = null;
+        //TODO: Reevaluate start/stop for this and starting/stopping rendering
+        super.onResume();
+        Log.i("Permissions", "Resume");
+        startCamera();
+
     }
 
     @Override
@@ -112,16 +121,24 @@ public class AnamorphicFragment extends BaseGameFragment
         Log.i("Permissions", "Pause");
         super.onPause();
         cameraSource.stop();
+        calibration = renderer.getEyeSensorCalibration();
+        SharedPreferences sharedPref = getContext().getSharedPreferences(
+                "anamorphicData", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPref.edit();
+        calibration.write(editor);
+        editor.apply();
     }
+
 
     @Override
-    public void onResume()
+    public void onDestroyView()
     {
-        super.onResume();
-        Log.i("Permissions", "Resume");
-        startCamera();
-
+        super.onDestroyView();
+        cameraSource.release();
+        faceDetector.release();
+        renderer = null;
     }
+
 
     private void startCamera()
     {
@@ -155,6 +172,11 @@ public class AnamorphicFragment extends BaseGameFragment
             throw new RuntimeException("Could not access camera", e);
         }
 
+    }
+
+    public void startCalibration()
+    {
+        renderer.calibrateEyeSensor();
     }
 
 
@@ -198,7 +220,6 @@ public class AnamorphicFragment extends BaseGameFragment
         @Override
         public void onNewItem(int faceId, final Face face)
         {
-            //Log.i("Face", "New findEye: " + faceId);
             sendFaceUpdate(true, face);
         }
 
@@ -221,17 +242,11 @@ public class AnamorphicFragment extends BaseGameFragment
                              Face face)
         {
             sendFaceUpdate(false, face);
-
-
-//            Log.i("Face", "Left Eye: " + leftEyePosition + " Right Eye: " + rightEyePosition);
-
-//            Log.i("Face", "Tracking findEye: RY = " + findEye.getEulerY() + " + RZ = " + findEye.getEulerZ());
         }
 
         @Override
         public void onMissing(FaceDetector.Detections<Face> detectionResults)
         {
-            //Log.i("Face", "Face missing");
             getView().queueEvent(new Runnable()
             {
                 @Override
@@ -245,12 +260,7 @@ public class AnamorphicFragment extends BaseGameFragment
         @Override
         public void onDone()
         {
-            //Log.i("Face", "Done");
         }
     }
 
-    public void startCalibration()
-    {
-        renderer.calibrateEyeSensor();
-    }
 }
